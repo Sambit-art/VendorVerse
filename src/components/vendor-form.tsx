@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useFormState, useFormStatus  } from "react-dom";
-import { useEffect, useState, useRef } from "react";
+import { useActionState, useEffect, useState, useRef } from "react";
+import { useFormStatus } from "react-dom";
 import { getSuggestions, finalizeServices, type Service } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,7 +45,7 @@ function SubmitButton() {
 }
 
 export function VendorForm() {
-  const [state, formAction] = useFormState(getSuggestions, initialState);
+  const [state, formAction] = useActionState(getSuggestions, initialState);
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
 
