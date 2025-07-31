@@ -1,7 +1,5 @@
-
-"use server";
-
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
 export interface Service {
   title: string;
@@ -24,36 +22,24 @@ const mockServices: Service[] = [
     { title: "Data Analytics & Visualization", description: "Turning raw data into actionable insights with powerful dashboards." },
 ];
 
-export async function getSuggestions(
-  prevState: any,
-  formData: FormData
-): Promise<{ services?: Service[]; error?: string }> {
-  const validatedFields = suggestionSchema.safeParse({
-    clientInterest: formData.get("clientInterest"),
-    vendorCapability: formData.get("vendorCapability"),
-  });
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const validatedFields = suggestionSchema.safeParse(body);
 
-  if (!validatedFields.success) {
-    const fieldErrors = validatedFields.error.flatten().fieldErrors;
-    return {
-      error: fieldErrors.clientInterest?.[0] || fieldErrors.vendorCapability?.[0]
-    };
-  }
-  
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  
-  const shuffled = [...mockServices].sort(() => 0.5 - Math.random());
-  const randomSlice = Math.floor(Math.random() * (shuffled.length - 3)) + 3;
-  
-  return { services: shuffled.slice(0, randomSlice) };
-}
+    if (!validatedFields.success) {
+      const fieldErrors = validatedFields.error.flatten().fieldErrors;
+      const errorMessage = fieldErrors.clientInterest?.[0] || fieldErrors.vendorCapability?.[0]
+      return NextResponse.json({ error: errorMessage }, { status: 400 });
+    }
 
-export async function finalizeServices(services: string[]): Promise<{ success: boolean; message: string }> {
-    console.log("Finalized services:", services);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
-    return {
-        success: true,
-        message: `Successfully finalized ${services.length} services. Check the server console for details.`
-    };
+    const shuffled = [...mockServices].sort(() => 0.5 - Math.random());
+    const randomSlice = Math.floor(Math.random() * (shuffled.length - 3)) + 3;
+    
+    return NextResponse.json({ services: shuffled.slice(0, randomSlice) });
+  } catch (error) {
+    return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
+  }
 }

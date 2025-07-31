@@ -1,9 +1,8 @@
 
 "use client";
 
-import { useActionState, useEffect, useState, useRef } from "react";
-import { useFormStatus } from "react-dom";
-import { getSuggestions, finalizeServices, type Service } from "@/app/actions";
+import { useState, useRef, useTransition } from "react";
+import { getSuggestions, finalizeServices, type Service } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -20,58 +19,47 @@ import { useToast } from "@/hooks/use-toast";
 import { Wand2, Users, Briefcase, Loader2, Send } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 
-const initialState: { services?: Service[]; error?: string } = {
-  services: undefined,
-  error: undefined,
-};
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button 
-      type="submit" 
-      size="lg" 
-      className="w-full text-lg shadow-md transition-all hover:shadow-lg hover:-translate-y-px" 
-      disabled={pending}
-    >
-      {pending ? (
-        <>
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          Getting Suggestions...
-        </>
-      ) : (
-        <>
-          <Wand2 className="mr-2 h-5 w-5" />
-          Get Suggestions
-        </>
-      )}
-    </Button>
-  );
-}
-
 export function VendorForm() {
-  const [state, formAction] = useActionState(getSuggestions, initialState);
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
+  const [isPending, startTransition] = useTransition();
 
+  const [services, setServices] = useState<Service[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [isFinalizing, setIsFinalizing] = useState(false);
 
-  useEffect(() => {
-    if (state.error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: state.error,
-      });
-    }
-    if (state.services) {
-      setDialogOpen(true);
-      setSelectedServices([]);
-    }
-  }, [state, toast]);
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const clientInterest = formData.get("clientInterest") as string;
+    const vendorCapability = formData.get("vendorCapability") as string;
 
+    if (clientInterest.length < 10) {
+        toast({ variant: "destructive", title: "Error", description: "Please describe client interests in at least 10 characters." });
+        return;
+    }
+    if (vendorCapability.length < 10) {
+        toast({ variant: "destructive", title: "Error", description: "Please describe vendor capabilities in at least 10 characters." });
+        return;
+    }
+
+    startTransition(async () => {
+        try {
+            const data = await getSuggestions({ clientInterest, vendorCapability });
+            setServices(data.services);
+            setSelectedServices([]);
+            setDialogOpen(true);
+        } catch (error: any) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.response?.data?.error || "Failed to get suggestions.",
+            });
+        }
+    });
+  };
+  
   const handleCheckboxChange = (serviceTitle: string, checked: boolean) => {
     setSelectedServices(prev => 
       checked ? [...prev, serviceTitle] : prev.filter(s => s !== serviceTitle)
@@ -88,22 +76,31 @@ export function VendorForm() {
         return;
     }
     setIsFinalizing(true);
-    const result = await finalizeServices(selectedServices);
-    setIsFinalizing(false);
-    if (result.success) {
-        toast({
-            title: "Success!",
-            description: result.message,
-            className: "bg-green-100 dark:bg-green-900",
-        });
-        setDialogOpen(false);
-        formRef.current?.reset();
-    } else {
-        toast({
+    try {
+        const result = await finalizeServices(selectedServices);
+        if (result.success) {
+            toast({
+                title: "Success!",
+                description: result.message,
+                className: "bg-green-100 dark:bg-green-900",
+            });
+            setDialogOpen(false);
+            formRef.current?.reset();
+        } else {
+             toast({
+                variant: "destructive",
+                title: "Finalization Failed",
+                description: result.message,
+            });
+        }
+    } catch (error: any) {
+         toast({
             variant: "destructive",
-            title: "Finalization Failed",
-            description: result.message,
+            title: "Error",
+            description: error.response?.data?.error || "Failed to finalize services.",
         });
+    } finally {
+        setIsFinalizing(false);
     }
   };
 
@@ -111,7 +108,7 @@ export function VendorForm() {
     <>
       <Card className="shadow-lg transition-shadow duration-300 hover:shadow-xl">
         <CardContent className="p-6">
-          <form ref={formRef} action={formAction} className="space-y-6">
+          <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="clientInterest" className="flex items-center text-base">
                 <Users className="mr-2 h-5 w-5 text-primary" />
@@ -139,7 +136,24 @@ export function VendorForm() {
               />
             </div>
             <div className="pt-4">
-              <SubmitButton />
+               <Button 
+                type="submit" 
+                size="lg" 
+                className="w-full text-lg shadow-md transition-all hover:shadow-lg hover:-translate-y-px" 
+                disabled={isPending}
+                >
+                {isPending ? (
+                    <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Getting Suggestions...
+                    </>
+                ) : (
+                    <>
+                    <Wand2 className="mr-2 h-5 w-5" />
+                    Get Suggestions
+                    </>
+                )}
+                </Button>
             </div>
           </form>
         </CardContent>
@@ -154,7 +168,7 @@ export function VendorForm() {
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[60vh] overflow-y-auto pr-4 space-y-4 my-4">
-            {state.services?.map((service) => (
+            {services?.map((service) => (
               <div key={service.title} className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                  <Checkbox 
                   id={service.title} 
