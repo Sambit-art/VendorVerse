@@ -11,11 +11,24 @@ interface SuggestionsPayload {
 }
 
 export const getSuggestions = async (payload: SuggestionsPayload): Promise<{ services: Service[] }> => {
-  const response = await axiosClient.post('/suggestions', payload);
-  return response.data;
+  try {
+    const response = await axiosClient.post('company/generate_suggestion/', {
+      client_text: payload.clientInterest,
+      vendor_text: payload.vendorCapability,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching suggestions:', error);
+    throw error; // Re-throw the error to be handled by the caller
+  }
 };
 
 export const finalizeServices = async (services: string[]): Promise<{ success: boolean, message: string }> => {
-  const response = await axiosClient.post('/finalize', { services });
-  return response.data;
+  try {
+    const response = await axiosClient.post('/api/finalize', { services });
+    return response.data;
+  } catch (error) {
+    console.error('Error finalizing services:', error);
+    throw error; // Re-throw the error to be handled by the caller
+  }
 };
