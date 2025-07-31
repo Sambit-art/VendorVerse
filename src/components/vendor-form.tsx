@@ -28,7 +28,12 @@ const initialState: { services?: Service[]; error?: string } = {
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="lg" className="w-full text-lg" disabled={pending}>
+    <Button 
+      type="submit" 
+      size="lg" 
+      className="w-full text-lg shadow-md transition-all hover:shadow-lg hover:-translate-y-px" 
+      disabled={pending}
+    >
       {pending ? (
         <>
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -104,7 +109,7 @@ export function VendorForm() {
 
   return (
     <>
-      <Card className="shadow-lg">
+      <Card className="shadow-lg transition-shadow duration-300 hover:shadow-xl">
         <CardContent className="p-6">
           <form ref={formRef} action={formAction} className="space-y-6">
             <div className="space-y-2">
@@ -133,7 +138,9 @@ export function VendorForm() {
                 required
               />
             </div>
-            <SubmitButton />
+            <div className="pt-4">
+              <SubmitButton />
+            </div>
           </form>
         </CardContent>
       </Card>
